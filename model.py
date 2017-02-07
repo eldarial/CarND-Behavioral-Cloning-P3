@@ -50,28 +50,29 @@ print("max",np.max(x_data),"min",np.min(x_data))
 
 main_input = Input(shape=(66, 200, 3), name='main_input')
 
-conv1 = Convolution2D(24, 5, 5, init=my_init, border_mode='valid')(main_input)
-conv2 = Convolution2D(48, 5, 5, init=my_init, border_mode='valid')(conv1)
+conv1 = Convolution2D(16, 5, 5, border_mode='valid')(main_input)
+conv2 = Convolution2D(24, 5, 5, border_mode='valid')(conv1)
 #pool1 = MaxPooling2D(pool_size=(2, 2))(conv2)
 
-conv3 = Convolution2D(48, 5, 5, init=my_init, border_mode='valid')(conv2)
-conv4 = Convolution2D(48, 3, 3, init=my_init, border_mode='valid')(conv3)
-conv5 = Convolution2D(64, 3, 3, init=my_init, border_mode='valid')(conv4)
+conv3 = Convolution2D(24, 5, 5, border_mode='valid')(conv2)
+conv4 = Convolution2D(32, 3, 3, border_mode='valid')(conv3)
+conv5 = Convolution2D(32, 3, 3, border_mode='valid')(conv4)
 
 # flatten layer
 flat1 = Flatten()(conv5)
 
-fc1 = Dense(128)(flat1)
+fc1 = Dense(64)(flat1)
 drop1 = Dropout(0.5)(fc1)
-fc2 = Dense(64)(drop1)
-drop2 = Dropout(0.5)(fc2)
-main_output = Dense(1)(drop2)
+main_output = Dense(1)(drop1)
 
 # sgd parameters
 model_path ='./model.h5'
-
 sgd_select = Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
-car_model = Model(input = [main_input], output = [main_output])
-car_model.compile(optimizer = sgd_select, loss = 'mean_squared_error', metrics=['accuracy'])
 
-car_model.fit(x_data, list_steering, validation_split=0.1, batch_size=64, nb_epoch=16)
+
+car_model = Model(input = [main_input], output = [main_output])
+car_model.compile(optimizer = sgd_select, loss = 'mean_squared_error', metrics=['mean_squared_error'])
+
+# train network
+car_model.fit(x_data, list_steering, validation_split=0.1, batch_size=16, nb_epoch=1)
+car_model.save(model_path)
