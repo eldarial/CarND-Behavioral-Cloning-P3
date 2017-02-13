@@ -35,14 +35,15 @@ def telemetry(sid, data):
         image = Image.open(BytesIO(base64.b64decode(imgString)))
         image_array = np.asarray(image)
         print("shape->",image_array.shape)
+        image_array = image_array[20:150]
         im2 = cv2.resize(image_array, (200,66))
         im2 = im2.astype(np.float32)
-        print("shape2->",im2.shape)
+        print("shape2->",image_array.shape,im2.shape)
         #steering_angle = float(model.predict(image_array[None, :, :, :], batch_size=1))
         im2 /= 255
         im2 -= 0.5
         steering_angle = float(model.predict(im2[None, :, :, :], batch_size=1))
-        throttle = 0.2
+        throttle = 0.1
         print(steering_angle, throttle)
         send_control(steering_angle, throttle)
 

@@ -1,6 +1,12 @@
 import cv2
+import csv
 import numpy as np
 import pandas
+import sklearn
+
+from random import shuffle
+
+from sklearn.model_selection import train_test_split
 
 from keras import backend as K
 from keras.preprocessing.image import ImageDataGenerator
@@ -10,6 +16,7 @@ from keras.optimizers import RMSprop, Adam
 from keras import initializations
 from sys import getsizeof
 # beneficios novia paisa
+
 
 
 # function to get list of images and list of steering angles
@@ -35,6 +42,7 @@ def get_batch_images(list_images, flag_normal = True, batch_size=-1):
         batch_data = np.zeros(shape=(len(list_images), 66, 200, ch), dtype=np.float32)
         k = 0
         for im_path in list_images:
+            im_path = im_path.replace("darial","autti")
             img_to = cv2.imread(im_path)
             img_to = cv2.cvtColor(img_to, cv2.COLOR_BGR2RGB)
             batch_data[k] = cv2.resize(img_to, (200,66))
@@ -49,42 +57,107 @@ def get_batch_images(list_images, flag_normal = True, batch_size=-1):
     return batch_data
 
 
-# function to initialize layer weights in network
-def my_init(shape, name=None):
-    return initializations.normal(shape, scale=0.01, name=name)
+# generator to create random batches
+def generator_batch_images(list_images, batch_size=4):
+    num_samples = len(samples)
+    while 1: # Loop forever so the generator never terminates
+        shuffle(samples)
+        offset_angle = 0.25
+        for offset in range(0, num_samples, batch_size):
+            batch_samples = samples[offset:offset+batch_size]
 
-#list_of_log_files = ['driving_log.csv', '/home/darial/udacar/CarND-Behavioral-Cloning-P3/simulator-linux/driving_log.csv']
-list_of_log_files = ['/home/darial/udacar/beta_simulator_linux/driving_log.csv']
-list_x_path, list_y =  get_data_list(list_of_log_files)
-x_data = get_batch_images(list_x_path)
-print("max",np.max(x_data),"min",np.min(x_data),x_data.shape,len(list_y))
+            images = []
+            angles = []
+            for batch_sample in batch_samples:
+                name = './IMG/'+batch_sample[0].split('/')[-1]
+                lname = './IMG/'+batch_sample[1].split('/')[-1]
+                rname = './IMG/'+batch_sample[2].split('/')[-1]
+                center_image = cv2.imread(name)
+                left_image = cv2.imread(lname) 
+                right_image = cv2.imread(rname)
+                if batch_sample[3] != "steering":
+                    center_angle = float(batch_sample[3])
+                    left_angle = center_angle 
+
+                    # data augmentation
+                    center_image = center_image[20:150]
+                    center_image = cv2.resize(center_image, (200,66))
+                    center_image = cv2.cvtColor(center_image, cv2.COLOR_BGR2RGB)
+                    center_image = center_image.astype(np.float32)
+
+                    left_image = left_image[20:150]
+                    left_image = cv2.resize(left_image, (200,66))
+                    left_image = cv2.cvtColor(left_image, cv2.COLOR_BGR2RGB)
+                    left_image = left_image.astype(np.float32)
+
+                    right_image = right_image[20:150]
+                    right_image = cv2.resize(right_image, (200,66))
+                    right_image = cv2.cvtColor(right_image, cv2.COLOR_BGR2RGB)
+                    right_image = right_image.astype(np.float32)
+
+
+                    # normalization
+                    center_image /= 255
+                    center_image -= 0.5 
+                    flipped_center_image = np.copy(center_image)
+                    flipped_center_image = np.fliplr(flipped_center_image)
+
+                    images.append(center_image)
+                    angles.append(center_angle)
+
+                    images.append(left_image)
+                    angles.append(center_angle + offset_angle)
+                    images.append(right_image)
+                    angles.append(center_angle - offset_angle)
+                    images.append(flipped_center_image)
+                    angles.append(-1*center_angle)
+
+            # trim image to only see section with road
+            X_train = np.array(images)
+            y_train = np.array(angles)
+            #print("shape",X_train.shape[0],y_train.shape)
+            yield sklearn.utils.shuffle(X_train, y_train)
+
+
+# read csv file
+samples = []
+with open('./driving_log.csv') as csvfile:
+    reader = csv.reader(csvfile)
+    for line in reader:
+        samples.append(line)
+
+# split data train and validation
+train_samples, validation_samples = train_test_split(samples, test_size=0.2)
+
+# create generators
+train_generator = generator_batch_images(train_samples, batch_size=4)
+validation_generator = generator_batch_images(validation_samples, batch_size=4)
+
 
 # --create architecture--
-
 main_input = Input(shape=(66, 200, 3), name='main_input')
 
-conv1 = Convolution2D(16, 5, 5, border_mode='valid')(main_input)
-conv2 = Convolution2D(24, 5, 5, border_mode='valid')(conv1)
+conv1 = Convolution2D(16, 5, 5, activation='relu', border_mode='valid')(main_input)
+conv2 = Convolution2D(24, 5, 5, activation='relu', border_mode='valid')(conv1)
 
-conv3 = Convolution2D(24, 5, 5, border_mode='valid')(conv2)
-conv4 = Convolution2D(48, 3, 3, border_mode='valid')(conv3)
-conv5 = Convolution2D(32, 3, 3, border_mode='valid')(conv4)
+conv3 = Convolution2D(24, 5, 5, activation='relu', border_mode='valid')(conv2)
+conv4 = Convolution2D(48, 3, 3, activation='relu', border_mode='valid')(conv3)
+conv5 = Convolution2D(48, 3, 3, activation='relu', border_mode='valid')(conv4)
 
 flat1 = Flatten()(conv5)
 
-fc1 = Dense(64)(flat1)
+fc1 = Dense(128)(flat1)
 drop1 = Dropout(0.5)(fc1)
 main_output = Dense(1)(drop1)
-
 # -- end architecture --
+
 
 # sgd parameters
 model_path ='./model.h5'
-sgd_select = Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
-
+sgd_select = Adam(lr=0.00001, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
 
 car_model = Model(input = [main_input], output = [main_output])
-car_model.compile(optimizer = sgd_select, loss = 'mean_squared_error', metrics=['mean_squared_error'])
+car_model.compile(optimizer = sgd_select, loss = 'mse')
 
 # set data generator
 datagen = ImageDataGenerator(
@@ -92,6 +165,7 @@ datagen = ImageDataGenerator(
     height_shift_range=0.05)
 
 # train network
-car_model.fit(x_data, np.array(list_y), validation_split=0.1, batch_size=16, nb_epoch=6)
+#car_model.fit(x_data, np.array(list_y), validation_split=0.1, batch_size=16, nb_epoch=6)
 #car_model.fit_generator(datagen.flow(x_data[:10000], np.array(list_y[:10000]), shuffle=True, batch_size=16), samples_per_epoch=x_data.shape[0], nb_epoch=7)
+car_model.fit_generator(train_generator, samples_per_epoch=4*len(train_samples), validation_data=validation_generator, nb_val_samples=4*len(validation_samples), nb_epoch=8)
 car_model.save(model_path)
