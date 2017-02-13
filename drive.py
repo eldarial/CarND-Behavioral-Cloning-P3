@@ -3,6 +3,7 @@ import base64
 from datetime import datetime
 import os
 import shutil
+import cv2
 
 import numpy as np
 import socketio
@@ -33,7 +34,14 @@ def telemetry(sid, data):
         imgString = data["image"]
         image = Image.open(BytesIO(base64.b64decode(imgString)))
         image_array = np.asarray(image)
-        steering_angle = float(model.predict(image_array[None, :, :, :], batch_size=1))
+        print("shape->",image_array.shape)
+        im2 = cv2.resize(image_array, (200,66))
+        im2 = im2.astype(np.float32)
+        print("shape2->",im2.shape)
+        #steering_angle = float(model.predict(image_array[None, :, :, :], batch_size=1))
+        im2 /= 255
+        im2 -= 0.5
+        steering_angle = float(model.predict(im2[None, :, :, :], batch_size=1))
         throttle = 0.2
         print(steering_angle, throttle)
         send_control(steering_angle, throttle)
@@ -44,6 +52,7 @@ def telemetry(sid, data):
             image_filename = os.path.join(args.image_folder, timestamp)
             image.save('{}.jpg'.format(image_filename))
     else:
+        print("nothing :s")
         # NOTE: DON'T EDIT THIS.
         sio.emit('manual', data={}, skip_sid=True)
 
@@ -51,6 +60,7 @@ def telemetry(sid, data):
 @sio.on('connect')
 def connect(sid, environ):
     print("connect ", sid)
+    print("paid vodka")
     send_control(0, 0)
 
 
@@ -79,7 +89,7 @@ if __name__ == '__main__':
         help='Path to image folder. This is where the images from the run will be saved.'
     )
     args = parser.parse_args()
-
+    print("my model", args.model)
     model = load_model(args.model)
 
     if args.image_folder != '':
