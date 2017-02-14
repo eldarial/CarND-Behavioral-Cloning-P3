@@ -62,7 +62,7 @@ def generator_batch_images(list_images, batch_size=4):
     num_samples = len(samples)
     while 1: # Loop forever so the generator never terminates
         shuffle(samples)
-        offset_angle = 0.25
+        offset_angle = 0.23
         for offset in range(0, num_samples, batch_size):
             batch_samples = samples[offset:offset+batch_size]
 
@@ -75,6 +75,8 @@ def generator_batch_images(list_images, batch_size=4):
                 center_image = cv2.imread(name)
                 left_image = cv2.imread(lname) 
                 right_image = cv2.imread(rname)
+                #asd = cv2.cvtColor(center_image, cv2.COLOR_BGR2YUV)
+                #print("max min",np.max(asd),np.min(asd))
                 if batch_sample[3] != "steering":
                     center_angle = float(batch_sample[3])
                     left_angle = center_angle 
@@ -82,17 +84,17 @@ def generator_batch_images(list_images, batch_size=4):
                     # data augmentation
                     center_image = center_image[20:150]
                     center_image = cv2.resize(center_image, (200,66))
-                    center_image = cv2.cvtColor(center_image, cv2.COLOR_BGR2RGB)
+                    center_image = cv2.cvtColor(center_image, cv2.COLOR_BGR2YUV)
                     center_image = center_image.astype(np.float32)
 
                     left_image = left_image[20:150]
                     left_image = cv2.resize(left_image, (200,66))
-                    left_image = cv2.cvtColor(left_image, cv2.COLOR_BGR2RGB)
+                    left_image = cv2.cvtColor(left_image, cv2.COLOR_BGR2YUV)
                     left_image = left_image.astype(np.float32)
 
                     right_image = right_image[20:150]
                     right_image = cv2.resize(right_image, (200,66))
-                    right_image = cv2.cvtColor(right_image, cv2.COLOR_BGR2RGB)
+                    right_image = cv2.cvtColor(right_image, cv2.COLOR_BGR2YUV)
                     right_image = right_image.astype(np.float32)
 
 
@@ -167,5 +169,5 @@ datagen = ImageDataGenerator(
 # train network
 #car_model.fit(x_data, np.array(list_y), validation_split=0.1, batch_size=16, nb_epoch=6)
 #car_model.fit_generator(datagen.flow(x_data[:10000], np.array(list_y[:10000]), shuffle=True, batch_size=16), samples_per_epoch=x_data.shape[0], nb_epoch=7)
-car_model.fit_generator(train_generator, samples_per_epoch=4*len(train_samples), validation_data=validation_generator, nb_val_samples=4*len(validation_samples), nb_epoch=8)
+car_model.fit_generator(train_generator, samples_per_epoch=15000, validation_data=validation_generator, nb_val_samples=6000, nb_epoch=8)
 car_model.save(model_path)
